@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSB Manager · Gestão da empresa</title>
+<meta name="description" content="Clientes, projetos e resultados da DSB Company em um só lugar.">
+<meta name="theme-color" content="#101725">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101725'/%3E%3Cpath d='m14 8-8 8 8 8m4-16 8 8-8 8' fill='none' stroke='%232dadff' stroke-width='3'/%3E%3C/svg%3E">
+<script src="js/theme.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+<script src="supabase/config.js" defer></script>
+<script src="supabase/supabase.js" defer></script>
+<script src="js/core.js" defer></script>
+<script src="js/app.js" defer></script>
+</head>
+<body>
+<div id="login-view" class="login-view">
+  <section class="login-brand">
+    <img class="login-logo" src="assets/images/logo.png" alt="DSB Company" width="140" height="60">
+    <div class="brand-intro"><span class="eyebrow">DSB MANAGER</span><h1>Seu próximo passo.<br><em>Sob controle.</em></h1><p>Mais clareza para os projetos.<br>Mais espaço para a sua empresa crescer.</p></div>
+    <img class="brand-art" src="assets/images/brand.png" alt="Símbolo da DSB Company em azul e ciano">
+    <div class="brand-bottom"><span>Digital solutions for business.</span><span>01 / GESTÃO</span></div>
+  </section>
+  <main class="login-main">
+    <button type="button" class="theme-toggle login-theme-toggle" data-theme-toggle aria-label="Alternar tema"></button>
+    <div class="login-box">
+      <div class="login-heading"><span class="mini-label">SEU ESPAÇO DE TRABALHO</span><h2>Bom ter você aqui.</h2><p>Acesse sua conta para continuar.</p></div>
+      <form id="login-form">
+        <label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="username" placeholder="voce@empresa.com" required maxlength="254">
+        <label for="password">Senha</label><div class="password-wrap"><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required minlength="6"><button type="button" id="toggle-password" aria-label="Mostrar senha"></button></div>
+        <div class="login-options"><label class="checkbox-label"><input id="remember" type="checkbox"> Manter conectado</label><button type="button" class="text-button" id="forgot">Esqueci minha senha</button></div>
+        <p id="login-error" class="form-error" role="alert"></p>
+        <button class="button primary login-submit" type="submit">Entrar no painel <span>→</span></button>
+      </form>
+      <div class="login-footer"><span>DSB Company</span><span>Acesso restrito à equipe autorizada</span></div>
+    </div>
+  </main>
+</div>
+<div id="app-view" class="app-shell" hidden>
+  <button class="sidebar-overlay" id="sidebar-overlay" aria-label="Fechar menu"></button>
+  <aside class="sidebar" id="sidebar">
+    <a href="#dashboard" class="sidebar-logo" aria-label="DSB Manager, visão geral"><img src="assets/images/logo.png" alt="DSB Company" width="140" height="60"><span>MANAGER</span></a>
+    <div class="workspace-switch"><span class="workspace-icon">D</span><div><strong>DSB Company</strong><small>Espaço de trabalho</small></div><span class="tiny-chevron">⌄</span></div>
+    <p class="nav-label">PRINCIPAL</p><nav id="main-nav" aria-label="Navegação principal"></nav>
+    <div class="sidebar-bottom"><p class="nav-label">ORGANIZAÇÃO</p><nav id="secondary-nav" aria-label="Organização"></nav>
+      <div class="workspace-note"><span class="note-icon">✦</span><strong>Faça acontecer.</strong><p>Um projeto de cada vez.</p></div>
+      <button class="profile-button" id="profile-button" data-nav="settings"><span class="avatar user-avatar">D</span><span class="profile-text"><strong id="user-name">Equipe DSB</strong><small id="user-role">Administrador</small></span><span>⌄</span></button>
+    </div>
+  </aside>
+  <div class="main-shell">
+    <header class="topbar"><div class="breadcrumb"><button id="mobile-menu" class="icon-button mobile-only" aria-label="Abrir menu"></button><span>Workspace</span><span class="slash">/</span><strong id="breadcrumb">Visão geral</strong></div>
+      <div class="topbar-actions"><button class="search-trigger" data-action="search"><span id="search-icon"></span><span>Buscar na empresa...</span><kbd>Ctrl K</kbd></button><button class="icon-button" id="refresh" aria-label="Atualizar dados"></button><button class="icon-button" data-nav="tasks" id="notification-button" aria-label="Ver tarefas pendentes"></button><button type="button" class="icon-button theme-toggle" data-theme-toggle aria-label="Alternar tema"></button><span class="topbar-divider"></span><span class="avatar top-avatar">D</span><button type="button" class="logout-button" data-action="logout" id="logout-button" aria-label="Sair da conta"><span id="logout-icon"></span><span class="logout-text">Sair</span></button></div>
+    </header>
+    <main id="content" tabindex="-1"></main>
+    <footer class="app-footer"><span>DSB Manager <span class="muted">/</span> Feito para seguir em frente.</span><span id="sync-status">Demonstração</span></footer>
+  </div>
+</div>
+<dialog id="modal"><div id="modal-content"></div></dialog>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<noscript>Ative o JavaScript para acessar o DSB Manager.</noscript>
+</body></html>
