@@ -12,6 +12,27 @@
 <script src="supabase/supabase.js" defer></script>
 <script src="js/core.js" defer></script>
 <script src="js/app.js" defer></script>
+<link rel="manifest" href="/manifest.webmanifest">
+
+<meta name="theme-color" content="#0f172a">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DSB Manager">
+
+<link
+  rel="apple-touch-icon"
+  href="/assets/images/icons/icon-192.png"
+>
+<link rel="manifest" href="/manifest.webmanifest">
+
+<meta name="theme-color" content="#0f172a">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DSB Manager">
+
+<link rel="apple-touch-icon" href="/assets/images/icons/icon-192.png">
 </head>
 <body>
 <div id="login-view" class="login-view">
@@ -58,4 +79,25 @@
 <dialog id="modal"><div id="modal-content"></div></dialog>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <noscript>Ative o JavaScript para acessar o DSB Manager.</noscript>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("/service-worker.js")
+        .then(registration => {
+          console.log(
+            "DSB Manager PWA registrado:",
+            registration.scope
+          );
+        })
+        .catch(error => {
+          console.error(
+            "Erro ao registrar PWA:",
+            error
+          );
+        });
+    });
+  }
+</script>
+<script src="/js/pwa.js"></script>
 </body></html>
