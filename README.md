@@ -24,3 +24,9 @@ Dashboard administrativo em HTML, CSS e JavaScript com autenticação e persist�
 5. Abra o projeto por um servidor HTTP, como Live Server.
 
 A tela pública possui somente login, recuperação de senha e alternância de tema. Não há cadastro público nem configuração do banco pela interface.
+## Módulo de chamados
+
+A versão inclui uma central de chamados isolada do restante do Manager. Antes de usar a aba **Chamados**, execute `supabase/chamados.sql` no SQL Editor do mesmo projeto Supabase. O arquivo adiciona as tabelas, RLS e bucket privado de anexos sem alterar os registros existentes.
+
+A aba permite filtrar chamados, abrir um chamado interno para testes, definir status/prioridade/responsável, conversar com o cliente e anexar arquivos. A estrutura do banco já foi preparada para o futuro Portal do Cliente.
+
