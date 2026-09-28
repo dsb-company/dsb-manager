@@ -30,3 +30,8 @@ A versão inclui uma central de chamados isolada do restante do Manager. Antes d
 
 A aba permite filtrar chamados, abrir um chamado interno para testes, definir status/prioridade/responsável, conversar com o cliente e anexar arquivos. A estrutura do banco já foi preparada para o futuro Portal do Cliente.
 
+
+
+## Acessos ao DSB Client
+
+A versão inclui o módulo de administração dos usuários do Portal do Cliente. Para ativá-lo, execute `supabase/portal-access.sql`. Para convidar e-mails que ainda não existem no Authentication, publique também `supabase/functions/dsb-portal-admin`. O passo a passo completo está em `docs/ACESSO-PORTAL.md`.

@@ -80,6 +80,13 @@ function navButton(){
 
 function injectNav(){
   const nav=$('#main-nav');if(!nav||$('#app-view')?.hidden)return;
+    if(activeRoute()){
+    nav.querySelectorAll('[data-nav].active').forEach(item=>{
+      item.classList.remove('active');
+      item.removeAttribute('aria-current');
+    });
+  }
+
   const existing=nav.querySelector('[data-tickets-nav]');
   if(existing){
     existing.classList.toggle('active',activeRoute());

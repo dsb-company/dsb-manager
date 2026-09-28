@@ -1,12 +1,14 @@
-const CACHE_NAME = "dsb-manager-v2";
+const CACHE_NAME = "dsb-manager-v3";
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/css/styles.css",
   "/css/tickets.css",
+  "/css/portal-access.css",
   "/js/app.js",
   "/js/tickets.js",
+  "/js/portal-access.js",
   "/js/core.js",
   "/js/theme.js",
   "/assets/images/logo.png",
