@@ -1,4 +1,4 @@
-const CACHE_NAME = "dsb-manager-v8";
+const CACHE_NAME = "dsb-manager-v9";
 
 const STATIC_ASSETS = [
   "./",

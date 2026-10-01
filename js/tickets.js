@@ -84,14 +84,40 @@ async function markRead(ticketId){
 function navButton(){
   const count=navCount();
   const svg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H7l-3 3V4Z"/><path d="M8 8h8M8 12h5"/></svg>';
-  const b=document.createElement('button');b.className='nav-item dsb-ticket-nav'+(activeRoute()?' active':'');b.dataset.ticketsNav='true';if(activeRoute())b.setAttribute('aria-current','page');b.innerHTML=`${svg}<span>Chamados</span>${count?`<span class="nav-count">${count}</span>`:''}`;return b;
+  const b=document.createElement('button');
+  b.className='nav-item dsb-ticket-nav'+(activeRoute()?' active':'');
+  b.dataset.ticketsNav='true';
+  if(activeRoute())b.setAttribute('aria-current','page');
+  b.innerHTML=`${svg}<span>Chamados</span><span class="nav-count" data-ticket-unread-badge ${count?'':'hidden'}>${count||''}</span>`;
+  return b;
+}
+function syncNavBadge(){
+  const count=navCount();
+  const buttons=document.querySelectorAll('[data-tickets-nav]');
+  buttons.forEach(button=>{
+    let badge=button.querySelector('[data-ticket-unread-badge]');
+    if(!badge){
+      badge=document.createElement('span');
+      badge.className='nav-count';
+      badge.dataset.ticketUnreadBadge='true';
+      button.appendChild(badge);
+    }
+    badge.textContent=count?String(count):'';
+    badge.hidden=count===0;
+  });
 }
 function injectNav(){
   const nav=$('#main-nav');if(!nav||$('#app-view')?.hidden)return;
   if(activeRoute())nav.querySelectorAll('[data-nav].active').forEach(item=>{item.classList.remove('active');item.removeAttribute('aria-current');});
-  const existing=nav.querySelector('[data-tickets-nav]');
-  if(existing){existing.classList.toggle('active',activeRoute());if(activeRoute())existing.setAttribute('aria-current','page');else existing.removeAttribute('aria-current');const current=existing.querySelector('.nav-count'),count=navCount();if(count){if(current)current.textContent=String(count);else existing.insertAdjacentHTML('beforeend',`<span class="nav-count">${count}</span>`);}else current?.remove();return;}
-  const button=navButton(),tasks=nav.querySelector('[data-nav="tasks"]');if(tasks)tasks.after(button);else nav.append(button);
+  let existing=nav.querySelector('[data-tickets-nav]');
+  if(!existing){
+    existing=navButton();
+    const tasks=nav.querySelector('[data-nav="tasks"]');
+    if(tasks)tasks.after(existing);else nav.append(existing);
+  }
+  existing.classList.toggle('active',activeRoute());
+  if(activeRoute())existing.setAttribute('aria-current','page');else existing.removeAttribute('aria-current');
+  syncNavBadge();
 }
 function setBreadcrumb(){const el=$('#breadcrumb');if(el)el.textContent='Chamados';}
 function showLoading(){const content=$('#content');if(content)content.innerHTML='<div class="ticket-loading"><span></span><p>Carregando chamados...</p></div>';setBreadcrumb();}
@@ -111,7 +137,7 @@ function formatSize(bytes){const n=Number(bytes)||0;if(n<1024)return`${n} B`;if(
 function detailPage(ticket){const clientRecord=managerClients().find(r=>r.id===ticket.client_id)?.data||{};return `<div class="ticket-detail-heading"><button class="button secondary" data-ticket-back>← Voltar aos chamados</button><div class="ticket-detail-title"><div><span class="ticket-number">#${E(ticketNumber(ticket))}</span><h1>${E(ticket.subject)}</h1><p>${E(companyName(ticket.client_id))} · aberto em ${E(dateTime(ticket.created_at))}</p></div><div class="ticket-heading-pills" id="ticket-heading-pills">${priorityPill(ticket.priority)}${statusPill(ticket.status)}</div></div></div><div class="ticket-detail-layout"><section class="panel ticket-conversation-panel"><div class="ticket-conversation-head"><div><h2 class="panel-title">Conversa</h2><p class="panel-subtitle">Atualização em tempo real</p></div><span id="ticket-message-count">${state.messages.length} mensagens</span></div><div class="ticket-messages" id="ticket-messages">${state.messages.length?state.messages.map(messageBubble).join(''):'<div class="ticket-empty"><strong>Nenhuma mensagem ainda.</strong></div>'}</div><form id="ticket-reply-form" class="ticket-reply-form"><label for="ticket-reply">Responder ao cliente</label><textarea id="ticket-reply" name="body" maxlength="5000" required placeholder="Digite sua resposta..."></textarea><div class="ticket-reply-actions"><label class="ticket-file-picker">${icon('download',15)}Anexar arquivo<input id="ticket-files" type="file" multiple accept="image/png,image/jpeg,image/webp,application/pdf,text/plain"></label><span id="ticket-file-label" class="field-note">PNG, JPG, WEBP, PDF ou TXT · até 10 MB por arquivo</span><button class="button primary" type="submit">Enviar resposta →</button></div><p class="form-error" id="ticket-reply-error" role="alert"></p></form></section><aside class="ticket-side"><section class="panel ticket-info-panel"><h2>Atendimento</h2><label for="ticket-status">Status</label><select id="ticket-status" data-ticket-status="${E(ticket.id)}">${STATUS.map(s=>`<option value="${E(s)}" ${s===ticket.status?'selected':''}>${E(s)}</option>`).join('')}</select><label for="ticket-priority">Prioridade</label><select id="ticket-priority" data-ticket-priority="${E(ticket.id)}">${PRIORITIES.map(s=>`<option value="${E(s)}" ${s===ticket.priority?'selected':''}>${E(s)}</option>`).join('')}</select><label for="ticket-owner">Responsável</label><select id="ticket-owner" data-ticket-owner="${E(ticket.id)}"><option value="">Não atribuído</option>${members().map(m=>`<option value="${E(m.user_id)}" ${m.user_id===ticket.assigned_to?'selected':''}>${E(m.name)}</option>`).join('')}</select></section><section class="panel ticket-info-panel"><h2>Solicitação</h2><dl class="ticket-dl"><div><dt>Empresa</dt><dd>${E(companyName(ticket.client_id))}</dd></div><div><dt>Solicitante</dt><dd>${E(ticket.requester_name||clientRecord.contact||'Não informado')}</dd></div><div><dt>E-mail</dt><dd>${E(ticket.requester_email||clientRecord.email||'Não informado')}</dd></div><div><dt>Categoria</dt><dd>${E(ticket.category)}</dd></div><div><dt>Página</dt><dd>${safeHttpUrl(ticket.page_url)?`<a href="${E(safeHttpUrl(ticket.page_url))}" target="_blank" rel="noopener noreferrer">${E(ticket.page_url)}</a>`:'Não informada'}</dd></div><div><dt>Última atividade</dt><dd id="ticket-last-activity">${E(dateTime(ticket.last_activity_at))}</dd></div></dl></section></aside></div>`;}
 function scrollMessages(behavior='auto'){const el=$('#ticket-messages');if(!el)return;requestAnimationFrame(()=>el.scrollTo({top:el.scrollHeight,behavior}));}
 function renderMessageList(behavior='smooth'){const el=$('#ticket-messages');if(!el)return;el.innerHTML=state.messages.length?state.messages.map(messageBubble).join(''):'<div class="ticket-empty"><strong>Nenhuma mensagem ainda.</strong></div>';const count=$('#ticket-message-count');if(count)count.textContent=`${state.messages.length} mensagens`;scrollMessages(behavior);}
-function updateUnreadIndicators(){if(activeRoute()&&!state.selected){const content=$('#content');if(content)content.innerHTML=listPage();setBreadcrumb();}injectNav();}
+function updateUnreadIndicators(){if(activeRoute()&&!state.selected){const content=$('#content');if(content)content.innerHTML=listPage();setBreadcrumb();}injectNav();syncNavBadge();}
 function syncSelectedTicketUI(ticket){if(!ticket||state.selected!==ticket.id||!activeRoute())return;const pills=$('#ticket-heading-pills');if(pills)pills.innerHTML=priorityPill(ticket.priority)+statusPill(ticket.status);const status=$('#ticket-status');if(status&&status.value!==ticket.status)status.value=ticket.status;const priority=$('#ticket-priority');if(priority&&priority.value!==ticket.priority)priority.value=ticket.priority;const owner=$('#ticket-owner');if(owner&&(owner.value||null)!==(ticket.assigned_to||null))owner.value=ticket.assigned_to||'';const activity=$('#ticket-last-activity');if(activity)activity.textContent=dateTime(ticket.last_activity_at);}
 
 async function renderTickets({force=false}={}){const content=$('#content');if(!content||$('#app-view')?.hidden)return;setBreadcrumb();injectNav();if(state.ready===null&&!state.loading)showLoading();await loadTickets(force);if(!activeRoute())return;if(state.ready===false){content.innerHTML=setupPanel();return;}if(state.selected){const ticket=state.tickets.find(t=>t.id===state.selected);if(!ticket){state.selected=null;content.innerHTML=listPage();return;}try{await loadTicketDetails(ticket.id);content.innerHTML=detailPage(ticket);await markRead(ticket.id);scrollMessages('auto');}catch(error){content.innerHTML=`<div class="error-panel">${E(friendly(error))} <button class="text-button" data-ticket-back>Voltar</button></div>`;}}else content.innerHTML=listPage();setBreadcrumb();injectNav();}
@@ -139,8 +165,11 @@ async function handleRealtimeMessage(payload){
     if(added){await profiles()?.loadTicketProfiles?.(message.ticket_id);renderMessageList('smooth');}
     if(message.author_kind==='client')await markRead(message.ticket_id);
   }else if(message.author_kind==='client'){
-    // Se foi necessário recarregar, loadUnread() já trouxe a contagem correta.
+    // Incrementa imediatamente o não-lido no Manager.
+    // O RPC loadUnread() continua sendo usado ao carregar/recarregar a aplicação.
     if(!reloaded)state.unread.set(message.ticket_id,unreadCount(message.ticket_id)+1);
+    injectNav();
+    syncNavBadge();
     updateUnreadIndicators();
     await notifyIncomingMessage(message);
   }
