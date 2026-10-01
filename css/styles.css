@@ -2888,3 +2888,13 @@ html[data-theme="dark"] .filter-input {
   }
 }
 
+
+
+/* Seletor de som das notificações */
+.dsb-sound-picker{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
+.dsb-sound-picker>label{display:block;margin:0 0 8px;font-size:.78rem;font-weight:700;color:var(--ink)}
+.dsb-sound-picker>p{margin:8px 0 0!important;color:var(--muted);font-size:.74rem;line-height:1.5}
+.dsb-sound-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsb-sound-row select{width:min(240px,100%);min-height:41px}
+.dsb-sound-row .button{margin-top:0!important;white-space:nowrap}
+@media(max-width:720px){.dsb-sound-row{align-items:stretch;flex-direction:column}.dsb-sound-row select,.dsb-sound-row .button{width:100%}}

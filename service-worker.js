@@ -1,4 +1,4 @@
-const CACHE_NAME = "dsb-manager-v7";
+const CACHE_NAME = "dsb-manager-v8";
 
 const STATIC_ASSETS = [
   "./",
@@ -14,7 +14,10 @@ const STATIC_ASSETS = [
   "./js/theme.js",
   "./assets/images/logo.png",
   "./assets/images/icons/icon-192.png",
-  "./assets/images/icons/icon-512.png"
+  "./assets/images/icons/icon-512.png",
+  "./assets/notification/universfield.mp3",
+  "./assets/notification/notification-038.mp3",
+  "./assets/notification/notification-024.mp3"
 ];
 
 self.addEventListener("install", event => {
