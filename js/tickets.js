@@ -198,5 +198,6 @@ document.addEventListener('submit',handleSubmit);
 document.addEventListener('keydown',handleKeydown);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.selected&&chatIsOpen(state.selected))markRead(state.selected);});
 window.addEventListener('hashchange',()=>{injectNav();if(activeRoute())renderTickets({force:true});});
+window.addEventListener('dsb:nav-rendered',()=>{injectNav();syncNavBadge();});
 window.addEventListener('DOMContentLoaded',bootstrap);
 })();
