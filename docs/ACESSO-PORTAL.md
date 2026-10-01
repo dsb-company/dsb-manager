@@ -75,3 +75,9 @@ O convite usa o sistema de Auth do Supabase. Para uso real com clientes, configu
 - criação de convites e geração de links acontecem na Edge Function;
 - os RPCs de vínculo/ativação conferem no banco se o usuário da equipe é administrador;
 - desativar um acesso mantém a conta no Authentication, porém o DSB Client deixa de retornar o perfil e o RLS deixa de liberar os chamados da empresa.
+
+
+## Links para usuários ativos
+
+- **Acesso direto**: gera um Magic Link para entrar no DSB Client sem digitar senha.
+- **Redefinir senha**: gera um link de recuperação (`recovery`). Ao abrir, o DSB Client mostra a tela para criar uma nova senha.

@@ -88,8 +88,13 @@ function accessActions(a,compact=false){
   const toggle=a.active
     ? `<button class="button secondary portal-small danger-soft" data-portal-toggle="${E(a.user_id)}" data-active="false">Desativar</button>`
     : `<button class="button secondary portal-small" data-portal-toggle="${E(a.user_id)}" data-active="true">Reativar</button>`;
-  const link=a.active?`<button class="button secondary portal-small" data-portal-link="${E(a.user_id)}">${a.portal_status==='pending'?'Gerar link de convite':'Link de redefinição'}</button>`:'';
-  return `<div class="portal-row-actions ${compact?'compact':''}">${link}${toggle}</div>`;
+  let links='';
+  if(a.active){
+    links=a.portal_status==='pending'
+      ? `<button class="button secondary portal-small" data-portal-link="${E(a.user_id)}">Gerar link de convite</button>`
+      : `<button class="button secondary portal-small" data-portal-link="${E(a.user_id)}">Acesso direto</button><button class="button secondary portal-small" data-portal-reset="${E(a.user_id)}">Redefinir senha</button>`;
+  }
+  return `<div class="portal-row-actions ${compact?'compact':''}">${links}${toggle}</div>`;
 }
 
 function accessTable(list){
@@ -198,14 +203,14 @@ async function createAccess(form){
   if(!managerClients().some(r=>r.id===clientId))throw Error('Selecione uma empresa válida.');
   if(name.length<2||name.length>120)throw Error('Informe um nome entre 2 e 120 caracteres.');
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Informe um e-mail válido.');
-  const c=client();
-  const {error:linkError}=await c.rpc('dsb_link_existing_customer_user',{p_client_id:clientId,p_name:name,p_email:email});
-  if(!linkError){await loadAccesses(true);return {mode:'linked_existing'};}
-  const text=`${linkError.code||''} ${linkError.message||''} ${linkError.details||''}`;
-  if(schemaMissing(linkError))throw Error('Execute primeiro o arquivo supabase/portal-access.sql no SQL Editor.');
-  if(!/AUTH_USER_NOT_FOUND/i.test(text))throw linkError;
+
+  // Toda criação/vinculação passa pela Edge Function. Ela é a única fonte de
+  // verdade para decidir se o usuário já existe no Auth, criar convite e
+  // persistir o vínculo. Isso evita o estado intermediário em que o Auth já
+  // contém o e-mail, mas o acesso ainda não foi salvo no Manager.
   const result=await invokeAdmin({action:'invite',clientId,name,email});
-  await loadAccesses(true);return result;
+  await loadAccesses(true);
+  return result;
 }
 
 async function setActive(userId,active){
@@ -219,9 +224,18 @@ async function generateLink(userId){
   return {link:result.link,type:result.type};
 }
 
+async function generateRecoveryLink(userId){
+  const result=await invokeAdmin({action:'generate_recovery_link',userId});
+  if(!result.link)throw Error('O Supabase não retornou um link de redefinição de senha.');
+  return {link:result.link,type:'recovery'};
+}
+
 function linkModal(link,type){
-  const title=type==='invite'?'Novo link de convite':'Link de redefinição de senha';
-  showModal(title,`<p class="portal-link-help">Este link dá acesso a uma etapa sensível da conta. Envie somente para o responsável correto da empresa.</p><label for="portal-generated-link">Link</label><textarea id="portal-generated-link" class="portal-link-box" readonly>${E(link)}</textarea><p class="form-error" id="portal-copy-error"></p><div class="form-actions"><button type="button" class="button secondary" data-action="close">Fechar</button><button type="button" class="button primary" data-portal-copy>Copiar link</button></div>`);
+  const title=type==='invite'?'Novo link de convite':type==='recovery'?'Link de redefinição de senha':'Link de acesso ao DSB Client';
+  const help=type==='recovery'
+    ? 'Este link abre o fluxo de criação de uma nova senha no DSB Client. Envie somente para o responsável correto da conta.'
+    : 'Este link dá acesso a uma etapa sensível da conta. Envie somente para o responsável correto da empresa.';
+  showModal(title,`<p class="portal-link-help">${help}</p><label for="portal-generated-link">Link</label><textarea id="portal-generated-link" class="portal-link-box" readonly>${E(link)}</textarea><p class="form-error" id="portal-copy-error"></p><div class="form-actions"><button type="button" class="button secondary" data-action="close">Fechar</button><button type="button" class="button primary" data-portal-copy>Copiar link</button></div>`);
 }
 
 async function copyGeneratedLink(){
@@ -235,10 +249,14 @@ async function handleSubmit(event){
   event.preventDefault();const button=form.querySelector('button[type="submit"]'),errorEl=$('#portal-access-error');button.disabled=true;errorEl.textContent='';
   try{
     const result=await createAccess(form);$('#modal').close();
-    if(result?.manualLink){linkModal(result.manualLink,'invite');toast('Conta criada. O envio por e-mail não ficou disponível, então gerei um link para você encaminhar.');}
-    else if(result?.mode==='invite_sent')toast('Convite enviado e acesso vinculado.');
-    else if(result?.mode==='invite_link')toast('Acesso criado. Use o link gerado para concluir o convite.');
-    else toast('Usuário existente vinculado à empresa.');
+    if(result?.manualLink){
+      linkModal(result.manualLink,result?.linkType||'invite');
+      toast(result?.mode==='existing_pending'?'Usuário já existia e foi vinculado. Use o link para concluir o primeiro acesso.':'Acesso criado. Também gerei um link para você encaminhar ao cliente.');
+    }
+    else if(result?.mode==='invite_sent')toast('Convite enviado e acesso criado como pendente.');
+    else if(result?.mode==='invite_link')toast('Acesso criado como pendente. Gere um link de convite na lista.');
+    else if(result?.mode==='linked_existing')toast('Usuário existente vinculado à empresa.');
+    else toast('Acesso criado.');
     if(activeRoute())renderAccesses();else decorateClientCards();
   }catch(error){errorEl.textContent=friendly(error);}finally{if(button?.isConnected)button.disabled=false;}
 }
@@ -256,6 +274,9 @@ async function handleClick(event){
   }
   if(b.dataset.portalLink){
     b.disabled=true;try{const result=await generateLink(b.dataset.portalLink);linkModal(result.link,result.type);}catch(error){toast(friendly(error),true);}finally{if(b.isConnected)b.disabled=false;}return;
+  }
+  if(b.dataset.portalReset){
+    b.disabled=true;try{const result=await generateRecoveryLink(b.dataset.portalReset);linkModal(result.link,result.type);}catch(error){toast(friendly(error),true);}finally{if(b.isConnected)b.disabled=false;}return;
   }
   if(b.dataset.portalCopy!==undefined){copyGeneratedLink();return;}
 }

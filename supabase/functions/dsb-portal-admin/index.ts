@@ -16,6 +16,13 @@ const normalizeName = (value: unknown) => String(value ?? '').trim();
 const validUuid = (value: unknown) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ''));
 const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const actionLinkFrom = (data: any) =>
+  data?.properties?.action_link ||
+  data?.properties?.actionLink ||
+  data?.action_link ||
+  data?.actionLink ||
+  null;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
@@ -86,6 +93,7 @@ Deno.serve(async (req) => {
       }
 
       let authUser = await getAuthUserByEmail(email);
+      const existedBefore = Boolean(authUser);
       let sent = false;
       let manualLink: string | null = null;
 
@@ -114,7 +122,7 @@ Deno.serve(async (req) => {
             });
             if (linkError) throw inviteError || linkError;
             authUser = linkData.user;
-            manualLink = linkData.properties?.action_link || null;
+            manualLink = actionLinkFrom(linkData);
           } else {
             const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
               type: 'invite',
@@ -122,13 +130,38 @@ Deno.serve(async (req) => {
               options: { ...(redirectTo ? { redirectTo } : {}) },
             });
             if (linkError) throw inviteError || linkError;
-            manualLink = linkData?.properties?.action_link || null;
+            manualLink = actionLinkFrom(linkData);
             if (!manualLink) throw new Error('Não foi possível gerar o link manual de convite.');
           }
         }
       }
 
       if (!authUser) throw new Error('Não foi possível criar ou localizar a conta de acesso.');
+
+      const confirmed = Boolean(authUser.email_confirmed_at || authUser.last_sign_in_at);
+
+      // Se a conta já existia no Authentication, mas ainda não foi ativada,
+      // gere um link manual imediatamente. Isso evita o falso cenário de
+      // "usuário existente" sem uma forma de concluir o primeiro acesso.
+      if (existedBefore && !confirmed && !manualLink) {
+        const redirectTo = String(Deno.env.get('DSB_CLIENT_URL') || '').trim() || undefined;
+        const makeLink = async (type: 'invite' | 'magiclink') => {
+          const { data, error } = await admin.auth.admin.generateLink({
+            type,
+            email,
+            options: { ...(redirectTo ? { redirectTo } : {}) },
+          });
+          return { data, error };
+        };
+
+        let generated = await makeLink('invite');
+        manualLink = generated.error ? null : actionLinkFrom(generated.data);
+        if (!manualLink) {
+          generated = await makeLink('magiclink');
+          if (generated.error) throw generated.error;
+          manualLink = actionLinkFrom(generated.data);
+        }
+      }
 
       const { data: existingByUser, error: existingError } = await admin
         .from('dsb_customer_users')
@@ -140,7 +173,6 @@ Deno.serve(async (req) => {
         return json({ error: 'Esta conta já está vinculada a outra empresa.' }, 409);
       }
 
-      const confirmed = Boolean(authUser.email_confirmed_at || authUser.last_sign_in_at);
       const payload = {
         user_id: authUser.id,
         client_id: clientId,
@@ -159,12 +191,39 @@ Deno.serve(async (req) => {
         .single();
       if (accessError) throw accessError;
 
+      const mode = existedBefore
+        ? (confirmed ? 'linked_existing' : 'existing_pending')
+        : (sent ? 'invite_sent' : 'invite_link');
+
       return json({
         ok: true,
         access,
-        mode: confirmed ? 'linked_existing' : (sent ? 'invite_sent' : 'invite_link'),
+        mode,
         manualLink,
+        linkType: existedBefore && !confirmed && manualLink ? 'invite' : undefined,
       });
+    }
+
+    if (action === 'generate_recovery_link') {
+      const userId = String(body?.userId || '');
+      if (!validUuid(userId)) return json({ error: 'Usuário inválido.' }, 400);
+      const { data: access, error: accessError } = await admin
+        .from('dsb_customer_users')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (accessError) throw accessError;
+      if (!access) return json({ error: 'Acesso não encontrado.' }, 404);
+      if (!access.active) return json({ error: 'O acesso está desativado.' }, 400);
+
+      const redirectTo = String(Deno.env.get('DSB_CLIENT_URL') || '').trim() || undefined;
+      const params: Record<string, unknown> = { type: 'recovery', email: access.email };
+      if (redirectTo) params.options = { redirectTo };
+      const { data, error } = await admin.auth.admin.generateLink(params as any);
+      if (error) throw error;
+      const link = actionLinkFrom(data);
+      if (!link) return json({ error: 'O Supabase gerou a recuperação, mas não devolveu o link de redefinição.' }, 502);
+      return json({ ok: true, type: 'recovery', link });
     }
 
     if (action === 'generate_link') {
@@ -178,13 +237,33 @@ Deno.serve(async (req) => {
       if (accessError) throw accessError;
       if (!access) return json({ error: 'Acesso não encontrado.' }, 404);
 
-      const type = access.portal_status === 'pending' ? 'invite' : 'recovery';
+      // Para contas pendentes, gere convite. Para contas já ativas, gere um magic link
+      // de acesso direto; o cliente pode definir/alterar a senha dentro do DSB Client.
+      let type = access.portal_status === 'pending' ? 'invite' : 'magiclink';
       const redirectTo = String(Deno.env.get('DSB_CLIENT_URL') || '').trim() || undefined;
-      const params: Record<string, unknown> = { type, email: access.email };
-      if (redirectTo) params.options = { redirectTo };
-      const { data, error } = await admin.auth.admin.generateLink(params as any);
+      const makeLink = async (linkType: string) => {
+        const params: Record<string, unknown> = { type: linkType, email: access.email };
+        if (redirectTo) params.options = { redirectTo };
+        return await admin.auth.admin.generateLink(params as any);
+      };
+
+      let { data, error } = await makeLink(type);
       if (error) throw error;
-      return json({ ok: true, type, link: data.properties?.action_link || null });
+      let link = actionLinkFrom(data);
+
+      // Alguns estados intermediários de contas convidadas podem não devolver
+      // action_link para um novo invite. Nessa situação, um magic link para a
+      // mesma conta existente é um fallback seguro para concluir o acesso.
+      if (!link && type === 'invite') {
+        type = 'magiclink';
+        const fallback = await makeLink(type);
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
+        link = actionLinkFrom(data);
+      }
+
+      if (!link) return json({ error: 'O Supabase gerou a operação, mas não devolveu um link de acesso.' }, 502);
+      return json({ ok: true, type, link });
     }
 
     return json({ error: 'Ação inválida.' }, 400);
