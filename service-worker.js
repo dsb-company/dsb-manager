@@ -1,19 +1,20 @@
-const CACHE_NAME = "dsb-manager-v6";
+const CACHE_NAME = "dsb-manager-v7";
 
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/css/styles.css",
-  "/css/tickets.css",
-  "/css/portal-access.css",
-  "/js/app.js",
-  "/js/tickets.js",
-  "/js/portal-access.js",
-  "/js/core.js",
-  "/js/theme.js",
-  "/assets/images/logo.png",
-  "/assets/images/icons/icon-192.png",
-  "/assets/images/icons/icon-512.png"
+  "./",
+  "./index.html",
+  "./css/styles.css",
+  "./css/tickets.css",
+  "./css/portal-access.css",
+  "./js/app.js",
+  "./js/profile.js",
+  "./js/tickets.js",
+  "./js/portal-access.js",
+  "./js/core.js",
+  "./js/theme.js",
+  "./assets/images/logo.png",
+  "./assets/images/icons/icon-192.png",
+  "./assets/images/icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
@@ -64,5 +65,21 @@ self.addEventListener("fetch", event => {
         return response;
       })
       .catch(() => caches.match(request))
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = event.notification?.data?.url || "./#tickets";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ("focus" in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(target);
+    })
   );
 });

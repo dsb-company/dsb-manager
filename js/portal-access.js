@@ -189,12 +189,54 @@ async function parseFunctionError(error){
   return message;
 }
 
+async function freshManagerSession(c){
+  let session=null;
+  const current=await c.auth.getSession();
+  if(current.error)throw current.error;
+  session=current.data?.session||null;
+
+  // Renova antes de uma ação administrativa sensível. Isso evita que a PWA
+  // permaneça visualmente aberta com um access token já expirado após ficar
+  // horas/dias em segundo plano.
+  const expiresAt=Number(session?.expires_at||0)*1000;
+  const shouldRefresh=!session||!expiresAt||expiresAt-Date.now()<120000;
+  if(shouldRefresh){
+    const refreshed=await c.auth.refreshSession();
+    if(refreshed.error||!refreshed.data?.session){
+      throw Error('Sua sessão do DSB Manager expirou. Saia e entre novamente para continuar.');
+    }
+    session=refreshed.data.session;
+  }
+  return session;
+}
+
 async function invokeAdmin(body){
   const c=client();if(!c)throw Error('Sessão indisponível.');
-  const {data,error}=await c.functions.invoke('dsb-portal-admin',{body});
-  if(error)throw Error(await parseFunctionError(error));
-  if(data?.error)throw Error(data.error);
-  return data||{};
+  let session=await freshManagerSession(c);
+
+  const call=async()=>c.functions.invoke('dsb-portal-admin',{
+    body,
+    headers:{Authorization:`Bearer ${session.access_token}`}
+  });
+
+  let result=await call();
+  let functionMessage=result.error?await parseFunctionError(result.error):(result.data?.error||'');
+
+  // Se o token foi invalidado entre a abertura do Manager e a chamada,
+  // tenta renovar uma única vez e repete a operação.
+  if(/sess[aã]o.*(inv[aá]lida|expirad)|jwt|token/i.test(String(functionMessage||''))){
+    const refreshed=await c.auth.refreshSession();
+    if(refreshed.error||!refreshed.data?.session){
+      throw Error('Sua sessão do DSB Manager expirou. Saia e entre novamente para continuar.');
+    }
+    session=refreshed.data.session;
+    result=await call();
+    functionMessage=result.error?await parseFunctionError(result.error):(result.data?.error||'');
+  }
+
+  if(result.error)throw Error(functionMessage||'Não foi possível executar a função.');
+  if(result.data?.error)throw Error(result.data.error);
+  return result.data||{};
 }
 
 async function createAccess(form){
